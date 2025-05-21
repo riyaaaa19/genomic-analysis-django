@@ -132,21 +132,9 @@ def analyze(request):
                 X_resampled, y_resampled, test_size=0.2, random_state=42, stratify=y_resampled
             )
 
-            # --- Model Toggle ---
-            model_choice = request.POST.get('model_choice', 'tree').lower()
-            if model_choice == 'tree':
-                clf = DecisionTreeClassifier(class_weight='balanced', random_state=42, max_depth=3)
-                model_display = "Decision Tree"
-            elif model_choice == 'forest':
-                clf = RandomForestClassifier(class_weight='balanced', random_state=42, n_estimators=100, max_depth=5)
-                model_display = "Random Forest"
-            elif model_choice == 'logistic':
-                clf = LogisticRegression(class_weight='balanced', random_state=42, max_iter=1000)
-                model_display = "Logistic Regression"
-            else:
-                clf = DecisionTreeClassifier(class_weight='balanced', random_state=42, max_depth=3)
-                model_display = "Decision Tree"
-
+            # --- Always use Decision Tree ---
+            clf = DecisionTreeClassifier(class_weight='balanced', random_state=42, max_depth=3)
+            model_display = "Decision Tree"
             context['model_name'] = model_display
 
             clf.fit(X_train, y_train)
@@ -193,23 +181,15 @@ def analyze(request):
             context['insights'] = insights
             context['report'] = report_dict
 
-            # Decision Tree Plot (only for tree or forest)
-            if model_choice in ['tree', 'forest']:
-                fig = plt.figure(figsize=(30, 15))
-                # For forest, plot first tree
-                if model_choice == 'forest' and hasattr(clf, 'estimators_'):
-                    plot_tree(clf.estimators_[0], feature_names=X.columns, class_names=list(label_encoder.classes_),
-                              filled=True, fontsize=12, proportion=True, precision=2)
-                else:
-                    plot_tree(clf, feature_names=X.columns, class_names=list(label_encoder.classes_),
-                              filled=True, fontsize=12, proportion=True, precision=2)
-                tmpfile = io.BytesIO()
-                fig.savefig(tmpfile, format='png', bbox_inches='tight')
-                encoded_tree = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
-                plt.close(fig)
-                context['tree_img'] = encoded_tree
-            else:
-                context['tree_img'] = None
+            # Decision Tree Plot
+            fig = plt.figure(figsize=(30, 15))
+            plot_tree(clf, feature_names=X.columns, class_names=list(label_encoder.classes_),
+                      filled=True, fontsize=12, proportion=True, precision=2)
+            tmpfile = io.BytesIO()
+            fig.savefig(tmpfile, format='png', bbox_inches='tight')
+            encoded_tree = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
+            plt.close(fig)
+            context['tree_img'] = encoded_tree
 
             # Confusion Matrix Plot
             fig, ax = plt.subplots()
