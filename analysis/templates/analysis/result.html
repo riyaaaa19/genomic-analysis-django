@@ -138,6 +138,11 @@
       <img src="data:image/png;base64,{{ tree_img }}" alt="Decision Tree">
     {% endif %}
 
+    {% if feature_img %}
+      <h2>Feature Importances</h2>
+      <img src="data:image/png;base64,{{ feature_img }}" alt="Feature Importances">
+    {% endif %}
+
     {% if conf_matrix_img %}
       <h2>Confusion Matrix</h2>
       <img src="data:image/png;base64,{{ conf_matrix_img }}" alt="Confusion Matrix">
@@ -159,7 +164,7 @@
           {% for key, values in report.items %}
             {% if key != 'accuracy' and key != 'macro_avg' and key != 'weighted_avg' %}
               <tr>
-                <td>{{ key }}</td>
+                <td>{{ key|default:"-" }}</td>
                 <td>{{ values.precision|default:"-" }}</td>
                 <td>{{ values.recall|default:"-" }}</td>
                 <td>{{ values.f1_score|default:"-" }}</td>
@@ -169,7 +174,7 @@
           {% endfor %}
           <tr>
             <td colspan="5" class="accuracy">
-              Accuracy: {{ report.accuracy }}
+              Accuracy: {{ report.accuracy|default:"-" }}
             </td>
           </tr>
           <tr>
@@ -198,7 +203,7 @@
     {% endif %}
 
     {% if report_file %}
-      <a class="btn-download" href="{% static 'results/' %}{{ report_file }}" download>
+      <a class="btn-download" href="{% static 'results/' %}{{ report_file|default:"" }}" download>
         Download Full Classification Report
       </a>
     {% endif %}
@@ -207,7 +212,7 @@
       <h2>Insights & Notes</h2>
       <ul class="insight-list">
         {% for insight in insights %}
-          <li>{{ insight }}</li>
+          <li>{{ insight|default:"-" }}</li>
         {% endfor %}
       </ul>
     {% endif %}

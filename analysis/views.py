@@ -5,13 +5,14 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.cluster import KMeans
 from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay
 from sklearn.impute import SimpleImputer
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.decomposition import PCA
 import io
@@ -19,7 +20,6 @@ import base64
 from collections import Counter
 from imblearn.over_sampling import SMOTE
 
-# Configure logging to file
 logging.basicConfig(filename='analysis_log.log', level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
 
 UPLOAD_DIR = 'uploads/'
@@ -64,13 +64,19 @@ def analyze(request):
             X = X[~nan_mask].reset_index(drop=True)
             y = y[~nan_mask].reset_index(drop=True).astype(str)
 
+            # --- Always define context variables for the template ---
+            context = {
+                'cluster_img': None, 'tree_img': None, 'report': None,
+                'insights': None, 'target_column': target_column, 'dist_img': None,
+                'conf_matrix_img': None, 'report_file': None,
+                'feature_img': None, 'model_name': None
+            }
+
             if len(X) < 20:
-                return render(request, 'analysis/result.html', {
-                    'cluster_img': None, 'tree_img': None, 'report': None,
+                context.update({
                     'insights': ['Dataset too small for meaningful prediction. Please upload at least 20 rows.'],
-                    'target_column': target_column, 'dist_img': None, 'conf_matrix_img': None,
-                    'report_file': None
                 })
+                return render(request, 'analysis/result.html', context)
 
             if y.nunique() > 50:
                 return perform_kmeans(request, X, f"Too many unique labels in target ({y.nunique()}) — classification skipped.")
@@ -83,12 +89,10 @@ def analyze(request):
             selected_feat = X.columns[selector.get_support()]
 
             if len(selected_feat) == 0:
-                return render(request, 'analysis/result.html', {
-                    'cluster_img': None, 'tree_img': None, 'report': None,
+                context.update({
                     'insights': ["No features were selected. Please check your data."],
-                    'target_column': target_column, 'dist_img': None, 'conf_matrix_img': None,
-                    'report_file': None
                 })
+                return render(request, 'analysis/result.html', context)
 
             X = X[selected_feat]
             X_scaled = StandardScaler().fit_transform(X)
@@ -104,6 +108,7 @@ def analyze(request):
             fig.savefig(tmpfile, format='png')
             dist_img = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
             plt.close(fig)
+            context['dist_img'] = dist_img
 
             # Clustering plot with PCA
             pca = PCA(n_components=2)
@@ -116,15 +121,34 @@ def analyze(request):
             fig.savefig(tmpfile, format='png')
             encoded_cluster = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
             plt.close(fig)
+            context['cluster_img'] = encoded_cluster
 
             label_encoder = LabelEncoder()
             y_encoded = label_encoder.fit_transform(y)
             smote = SMOTE(random_state=42)
             X_resampled, y_resampled = smote.fit_resample(X_scaled, y_encoded)
 
-            X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42, stratify=y_resampled)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_resampled, y_resampled, test_size=0.2, random_state=42, stratify=y_resampled
+            )
 
-            clf = DecisionTreeClassifier(class_weight='balanced', random_state=42, max_depth=3)
+            # --- Model Toggle ---
+            model_choice = request.POST.get('model_choice', 'tree').lower()
+            if model_choice == 'tree':
+                clf = DecisionTreeClassifier(class_weight='balanced', random_state=42, max_depth=3)
+                model_display = "Decision Tree"
+            elif model_choice == 'forest':
+                clf = RandomForestClassifier(class_weight='balanced', random_state=42, n_estimators=100, max_depth=5)
+                model_display = "Random Forest"
+            elif model_choice == 'logistic':
+                clf = LogisticRegression(class_weight='balanced', random_state=42, max_iter=1000)
+                model_display = "Logistic Regression"
+            else:
+                clf = DecisionTreeClassifier(class_weight='balanced', random_state=42, max_depth=3)
+                model_display = "Decision Tree"
+
+            context['model_name'] = model_display
+
             clf.fit(X_train, y_train)
             y_pred = clf.predict(X_test)
 
@@ -135,6 +159,7 @@ def analyze(request):
             report_path = os.path.join(RESULT_DIR, 'classification_report.txt')
             with open(report_path, 'w') as f:
                 f.write(report_txt)
+            context['report_file'] = os.path.basename(report_path)
 
             # Cross-validation
             if len(X) >= 10:
@@ -165,15 +190,26 @@ def analyze(request):
                 )
             if len(cv_scores) > 0:
                 insights.append(f"Cross-validated accuracy: {cv_mean:.2f}, showing general performance stability.")
+            context['insights'] = insights
+            context['report'] = report_dict
 
-            # Decision Tree Plot
-            fig = plt.figure(figsize=(30, 15))
-            plot_tree(clf, feature_names=X.columns, class_names=list(label_encoder.classes_),
-                      filled=True, fontsize=12, proportion=True, precision=2)
-            tmpfile = io.BytesIO()
-            fig.savefig(tmpfile, format='png', bbox_inches='tight')
-            encoded_tree = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
-            plt.close(fig)
+            # Decision Tree Plot (only for tree or forest)
+            if model_choice in ['tree', 'forest']:
+                fig = plt.figure(figsize=(30, 15))
+                # For forest, plot first tree
+                if model_choice == 'forest' and hasattr(clf, 'estimators_'):
+                    plot_tree(clf.estimators_[0], feature_names=X.columns, class_names=list(label_encoder.classes_),
+                              filled=True, fontsize=12, proportion=True, precision=2)
+                else:
+                    plot_tree(clf, feature_names=X.columns, class_names=list(label_encoder.classes_),
+                              filled=True, fontsize=12, proportion=True, precision=2)
+                tmpfile = io.BytesIO()
+                fig.savefig(tmpfile, format='png', bbox_inches='tight')
+                encoded_tree = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
+                plt.close(fig)
+                context['tree_img'] = encoded_tree
+            else:
+                context['tree_img'] = None
 
             # Confusion Matrix Plot
             fig, ax = plt.subplots()
@@ -182,17 +218,25 @@ def analyze(request):
             fig.savefig(tmpfile, format='png')
             encoded_conf_matrix = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
             plt.close(fig)
+            context['conf_matrix_img'] = encoded_conf_matrix
 
-            return render(request, 'analysis/result.html', {
-                'cluster_img': encoded_cluster,
-                'tree_img': encoded_tree,
-                'report': report_dict,
-                'insights': insights,
-                'target_column': target_column,
-                'dist_img': dist_img,
-                'conf_matrix_img': encoded_conf_matrix,
-                'report_file': os.path.basename(report_path)
-            })
+            # --- Feature Importance Chart (Matplotlib) ---
+            feature_img = None
+            if hasattr(clf, 'feature_importances_'):
+                importances = clf.feature_importances_
+                fig, ax = plt.subplots(figsize=(10, 5))
+                ax.barh(X.columns, importances, color='skyblue')
+                ax.set_title('Feature Importances')
+                ax.set_xlabel('Importance')
+                ax.invert_yaxis()
+                plt.tight_layout()
+                tmpfile = io.BytesIO()
+                fig.savefig(tmpfile, format='png')
+                feature_img = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
+                plt.close(fig)
+            context['feature_img'] = feature_img
+
+            return render(request, 'analysis/result.html', context)
 
         except Exception as e:
             logging.exception("Error during analysis")
@@ -203,12 +247,15 @@ def analyze(request):
 
 def perform_kmeans(request, df, message):
     df_numeric = df.select_dtypes(include=[np.number]).dropna(axis=1, how='all')
+    context = {
+        'cluster_img': None, 'tree_img': None, 'report': None,
+        'insights': None, 'target_column': None, 'dist_img': None,
+        'conf_matrix_img': None, 'report_file': None,
+        'feature_img': None, 'model_name': None
+    }
     if df_numeric.empty:
-        return render(request, 'analysis/result.html', {
-            'cluster_img': None, 'tree_img': None, 'report': None,
-            'insights': ["No valid numeric data found."], 'target_column': None,
-            'dist_img': None, 'conf_matrix_img': None, 'report_file': None
-        })
+        context['insights'] = ["No valid numeric data found."]
+        return render(request, 'analysis/result.html', context)
     X = SimpleImputer(strategy='mean').fit_transform(df_numeric)
     X_scaled = StandardScaler().fit_transform(X)
 
@@ -223,9 +270,6 @@ def perform_kmeans(request, df, message):
     fig.savefig(tmpfile, format='png')
     encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
     plt.close(fig)
-
-    return render(request, 'analysis/result.html', {
-        'cluster_img': encoded, 'tree_img': None, 'report': None,
-        'insights': [message], 'target_column': None,
-        'dist_img': None, 'conf_matrix_img': None, 'report_file': None
-    })
+    context['cluster_img'] = encoded
+    context['insights'] = [message]
+    return render(request, 'analysis/result.html', context)
