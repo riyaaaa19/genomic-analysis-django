@@ -1,115 +1,106 @@
+# Genomic Analysis Django
 
----
+A web application for interactive genomic data analysis built with Django, Scikit-learn, and Pandas.  
+Users can upload CSV files containing genomic data and receive automatic analysis, including:
 
-# Genomic Data Analysis Tool
-
-A Django-based web application for genomic data analysis, featuring clustering, classification, and interactive visualization. Designed to streamline genomic data preprocessing, analysis, and reporting for researchers and bioinformaticians.
-
----
+- **Target column detection** (classification or clustering as appropriate)
+- **Data preprocessing** (imputation, scaling, encoding)
+- **Feature selection** and **feature importance visualization**
+- **Model training and evaluation** (Decision Tree classifier by default)
+- **Class distribution and clustering visualization**
+- **Confusion matrix and classification report**
+- **Downloadable reports**
 
 ## Features
 
-* **Data Preprocessing**
+- **Upload CSV Genomic Data:** Easily upload your dataset via the web interface.
+- **Automatic Target Detection:** The system detects the best target column for supervised tasks.
+- **Classification & Clustering:** Runs classification (if suitable target found) or clustering (if not).
+- **Feature Importance:** Visualizes which features are most important for prediction.
+- **Data Visualization:** See bar charts of class distribution, PCA plots of clusters, decision tree visualization, and more.
+- **Report Download:** Download a plain-text classification report.
+- **Handles Missing Data:** Uses imputation and scaling for robust results.
+- **Class Imbalance Support:** Uses SMOTE to balance classes for fairer model evaluation.
 
-  * SMOTE (Synthetic Minority Over-sampling Technique) to balance datasets
-  * Feature selection to identify important genomic markers
-  * Cross-validation for model robustness
+## Getting Started
 
-* **Clustering**
+### Prerequisites
 
-  * K-means clustering to discover groups or patterns in genomic data
+- Python 3.8+
+- pip
 
-* **Classification Models**
-
-  * Decision Tree
-  * Random Forest
-  * Logistic Regression
-    Users can toggle between models to compare results
-
-* **Visualizations**
-
-  * Interactive plots using Plotly for exploratory data analysis
-  * Feature importance visualization to interpret model decisions
-
-* **Reporting**
-
-  * Generate comprehensive analysis reports based on selected data and models
-
----
-
-## Technology Stack
-
-* **Backend:** Django (Python)
-* **Machine Learning:** scikit-learn, imbalanced-learn (for SMOTE)
-* **Visualization:** Plotly
-* **Database:** SQLite (default, easily switchable to PostgreSQL)
-* **Frontend:** Django templates with HTML/CSS/JavaScript
-
----
-
-## Installation & Setup
+### Installation
 
 1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/yourusername/genomic-data-analysis.git
-   cd genomic-data-analysis
+   ```sh
+   git clone https://github.com/riyaaaa19/genomic-analysis-django.git
+   cd genomic-analysis-django
    ```
 
-2. **Create and activate a virtual environment:**
-
-   ```bash
-   python3 -m venv env
-   source env/bin/activate  # On Windows: env\Scripts\activate
+2. **Create a virtual environment:**
+   ```sh
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
 3. **Install dependencies:**
-
-   ```bash
+   ```sh
    pip install -r requirements.txt
    ```
 
-4. **Run migrations:**
-
-   ```bash
+4. **Run migrations (if using Django models):**
+   ```sh
    python manage.py migrate
    ```
 
 5. **Start the development server:**
-
-   ```bash
+   ```sh
    python manage.py runserver
    ```
 
-6. **Open your browser and navigate to:**
-   `http://127.0.0.1:8000`
-
----
+6. **View in your browser:**
+   ```
+   http://127.0.0.1:8000/
+   ```
 
 ## Usage
 
-* Upload your genomic dataset through the web interface
-* Select preprocessing options (e.g., SMOTE, feature selection)
-* Choose your analysis model (Decision Tree, Random Forest, Logistic Regression)
-* View clustering results and interactive visualizations
-* Download detailed analysis reports
+1. Open the web app.
+2. Upload your CSV genomic data file.
+3. Wait for the analysis and visualizations.
+4. Download results or reports if needed.
 
----
+**Note:** Only numeric columns are used for analysis. The app will ignore text columns (other than the target).
 
-## Deployment
+## File Structure
 
-The app can be deployed on platforms such as Heroku, Railway, or Render. Ensure environment variables are set and static files are collected before deployment.
-
----
+```
+genomic-analysis-django/
+├── analysis/
+│   ├── templates/
+│   │   └── analysis/
+│   │       ├── index.html
+│   │       └── result.html
+│   ├── static/
+│   │   └── results/
+│   ├── views.py
+│   └── ...
+├── genomics_project/
+│   ├── settings.py
+│   └── ...
+├── requirements.txt
+├── manage.py
+└── README.md
+```
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request.
-
----
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+[MIT](LICENSE) (or specify your license here)
 
 ---
+
+*Created by [riyaaaa19](https://github.com/riyaaaa19)*
